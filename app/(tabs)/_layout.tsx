@@ -2,22 +2,22 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Home, Search, Bookmark, User } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { View } from 'react-native';
 import Header from '@/components/Header';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
+        headerStyle: {
+          backgroundColor: Colors.dark.background,
+        },
         tabBarStyle: {
           backgroundColor: Colors.dark.tabBar,
           borderTopColor: Colors.dark.border,
         },
         tabBarActiveTintColor: Colors.dark.primary,
         tabBarInactiveTintColor: Colors.dark.tabIconDefault,
-        headerStyle: {
-          backgroundColor: Colors.dark.background,
-        },
         headerTitleStyle: {
           color: Colors.dark.text,
         },

@@ -39,7 +39,75 @@ export default function PlayerScreen() {
   
   // Fetch anime details
   const { data: anime, isLoading: isLoadingAnime, error: animeError } = 
-    trpc.anime.getAnimeById.useQuery({ id: animeId }, { enabled: !!animeId });
+    trpc.anime.getAnimeById.useQuery(
+      { id: animeId! }, 
+      { enabled: !!animeId }
+    );
+
+  // Handle URL formats: /player/{animeId} and /player/{animeId}/{episodeId}
+  useEffect(() => {
+    let isMounted = true;
+    
+    const redirectToFirstEpisode = async () => {
+      if (!animeId) return;
+      
+      try {
+        // Immediately show loading state
+        if (isMounted) {
+          setEpisodeError(null);
+        }
+        
+        // Fetch episodes
+        const episodes = await trpcClient.anime.getEpisodes.query({
+          animeId,
+          animeName: anime?.name || '',
+          providers: anime?.providers || [],
+          providerIds: anime?.providerIds || []
+        });
+
+        if (!isMounted) return;
+
+        if (!episodes || episodes.length === 0) {
+          setEpisodeError('No episodes found');
+          return;
+        }
+
+        // Get the first episode's ID
+        const firstEpisode = episodes[0];
+        
+        // If no episodeId or episode doesn't exist, redirect to first episode
+        if (!episodeId || !episodes.some(ep => ep.id === episodeId || ep.number.toString() === episodeId)) {
+          router.replace(`/player/${animeId}/${firstEpisode.id}`);
+          return;
+        }
+
+        // If we have a valid episode ID, continue with normal flow
+        const currentEp = episodes.find(ep => ep.id === episodeId || ep.number.toString() === episodeId);
+        if (currentEp) {
+          setCurrentEpisode(currentEp);
+          setCurrentEpisodeIndex(episodes.findIndex(ep => ep.id === currentEp.id));
+        }
+      } catch (error) {
+        console.error('Error loading episodes:', error);
+        if (isMounted) {
+          setEpisodeError('Failed to load episodes');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingEpisodes(false);
+        }
+      }
+    };
+    
+    // Only run this effect if we don't have a valid episodeId
+    if (!episodeId || !episodes || episodes.length === 0) {
+      redirectToFirstEpisode();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [anime, animeId, episodeId, router]);
   
   // Load saved layout preference
   useEffect(() => {
@@ -234,6 +302,7 @@ export default function PlayerScreen() {
     setIsControlsVisible(true);
   };
 
+  // Show loading state while fetching data
   if (isLoadingAnime || isLoadingEpisodes) {
     return (
       <View style={styles.loadingContainer}>
