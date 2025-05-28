@@ -22,7 +22,11 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.arise"
+      "package": "app.rork.arise",
+      "androidTv": {
+        "icon": "./assets/images/tv-icon.png",
+        "banner": "./assets/images/tv-banner.png"
+      }
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -36,7 +40,8 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "androidTv": true
     }
   }
 }
