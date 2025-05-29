@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Search, Bookmark, User } from 'lucide-react-native';
+import { Chrome as Home, Search, Bookmark, User } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import Header from '@/components/Header';
 

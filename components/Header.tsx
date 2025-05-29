@@ -13,18 +13,7 @@ import {
 } from 'react-native';
 import { Link, usePathname, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { 
-  Search, 
-  Bell, 
-  Menu, 
-  User, 
-  X,
-  Home,
-  Bookmark,
-  Settings,
-  Mail,
-  Play
-} from 'lucide-react-native';
+import { Search, Bell, Menu, User, X, Chrome as Home, Bookmark, Settings, Mail, Play } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import Colors from '@/constants/colors';
 import Layout from '@/constants/layout';

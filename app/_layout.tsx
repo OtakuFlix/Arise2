@@ -5,9 +5,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { trpc, queryClient, trpcClient } from '@/lib/trpc';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Colors from '@/constants/colors';
+import Colors from '@/constants/colors'
+import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 
 export default function RootLayout() {
+  useFrameworkReady();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
