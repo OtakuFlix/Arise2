@@ -8,9 +8,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Colors from '@/constants/colors';
 
 export default function RootLayout() {
-  // Remove font loading since the files don't exist
-  // and are causing bundling errors
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>

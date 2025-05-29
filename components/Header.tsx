@@ -1,4 +1,4 @@
-import React, { forwardRef, useImperativeHandle, useState, useEffect } from 'react';
+import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -8,9 +8,10 @@ import {
   Animated, 
   Dimensions,
   StatusBar,
-  SafeAreaView
+  SafeAreaView,
+  Modal
 } from 'react-native';
-import { Link, usePathname } from 'expo-router';
+import { Link, usePathname, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { 
   Search, 
@@ -40,20 +41,23 @@ interface HeaderProps {
   title?: string;
   showSearch?: boolean;
   onMenuPress?: () => void;
-  isSearchBarVisible?: boolean; // new prop to control search bar visibility
-  onSearchToggle?: (visible: boolean) => void; // callback for parent
+  isSearchBarVisible?: boolean;
+  onSearchToggle?: (visible: boolean) => void;
 }
 
-const Header = forwardRef<HeaderRef, HeaderProps>(({ title, showSearch = true, onMenuPress, isSearchBarVisible: propIsSearchBarVisible = false, onSearchToggle }, ref) => {
+const Header = forwardRef<HeaderRef, HeaderProps>(({ 
+  title, 
+  showSearch = true, 
+  onMenuPress, 
+  isSearchBarVisible: propIsSearchBarVisible = false, 
+  onSearchToggle 
+}, ref) => {
   const pathname = usePathname();
-  // Use internal state if onSearchToggle is not provided
+  const router = useRouter();
   const [internalIsSearchBarVisible, setInternalIsSearchBarVisible] = useState(false);
-  const isSearchBarVisible = onSearchToggle ? propIsSearchBarVisible : internalIsSearchBarVisible;
   const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [scrollY] = useState(new Animated.Value(0));
-  const [menuAnimation] = useState(new Animated.Value(0));
-  const [overlayAnimation] = useState(new Animated.Value(0));
-  const [menuItemsAnimation] = useState(new Animated.Value(0));
+  const isSearchBarVisible = onSearchToggle ? propIsSearchBarVisible : internalIsSearchBarVisible;
 
   useImperativeHandle(ref, () => ({
     handleScroll: (value: number) => {
@@ -61,25 +65,22 @@ const Header = forwardRef<HeaderRef, HeaderProps>(({ title, showSearch = true, o
     },
   }));
 
-  // Header background color based on scroll - more translucent
   const headerBackgroundColor = scrollY.interpolate({
     inputRange: [0, 30, 80],
     outputRange: [
-      'rgba(10,10,20,0)',    // fully transparent at rest
-      'rgba(10,10,20,0.2)',  // slightly visible
-      'rgba(10,10,20,0.4)'   // more visible but still translucent
+      'rgba(10,10,20,0)',
+      'rgba(10,10,20,0.2)',
+      'rgba(10,10,20,0.4)'
     ],
     extrapolate: 'clamp',
   });
 
-  // Header blur intensity - stronger blur effect
   const blurIntensity = scrollY.interpolate({
     inputRange: [0, 80],
-    outputRange: [0, 30],  // reduced max blur for more subtle effect
+    outputRange: [0, 30],
     extrapolate: 'clamp',
   });
 
-  // Header blur opacity - make it more subtle
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 80],
     outputRange: [0, 0.9],
@@ -87,89 +88,8 @@ const Header = forwardRef<HeaderRef, HeaderProps>(({ title, showSearch = true, o
   });
 
   const toggleMenu = () => {
-    if (isMenuVisible) {
-      closeMenu();
-    } else {
-      openMenu();
-    }
+    setIsMenuVisible(!isMenuVisible);
   };
-  // Ensure no numeric style indices are set anywhere in menu logic (none present here)
-
-  const openMenu = () => {
-    setIsMenuVisible(true);
-    
-    // Reset menu items animation
-    menuItemsAnimation.setValue(0);
-    
-    Animated.parallel([
-      Animated.spring(menuAnimation, {
-        toValue: 1,
-        tension: 100,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayAnimation, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      // Animate menu items after menu opens
-      Animated.timing(menuItemsAnimation, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    });
-  };
-
-  const closeMenu = () => {
-    Animated.parallel([
-      Animated.spring(menuAnimation, {
-        toValue: 0,
-        tension: 120,
-        friction: 9,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayAnimation, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(menuItemsAnimation, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setIsMenuVisible(false);
-    });
-  };
-
-  const menuTranslateX = menuAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-MENU_WIDTH, 0],
-  });
-
-  const overlayOpacity = overlayAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
-  const menuScale = menuAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.9, 1],
-  });
-
-  const menuItemOpacity = menuItemsAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
-  const menuItemTranslateY = menuItemsAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [20, 0],
-  });
 
   type RoutePath = '/(tabs)' | '/search' | '/(tabs)/explore' | '/(tabs)/watchlist' | '/(tabs)/profile';
   
@@ -187,55 +107,10 @@ const Header = forwardRef<HeaderRef, HeaderProps>(({ title, showSearch = true, o
     { icon: Settings, label: 'Profile', route: '/(tabs)/profile' },
   ];
 
-  const MenuItem = ({ item, onPress, index, isActive }: { 
-    item: typeof menuItems[0], 
-    onPress: () => void, 
-    index: number,
-    isActive: boolean
-  }) => {
-    const itemDelay = menuItemsAnimation.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1 - (index * 0.1)],
-    });
-  
-    return (
-      <Animated.View
-        style={{
-          opacity: menuItemOpacity,
-          transform: [
-            { 
-              translateY: menuItemTranslateY.interpolate({
-                inputRange: [0, 1],
-                outputRange: [20 + (index * 5), 0],
-              })
-            },
-            { scale: itemDelay }
-          ],
-        }}
-      >
-        <Link href={item.route} asChild>
-          <TouchableOpacity 
-            style={[styles.menuItem, isActive && styles.menuItemActive]} 
-            onPress={onPress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuIconContainer}>
-              <item.icon size={18} color={isActive ? Colors.dark.primary : Colors.dark.text} />
-            </View>
-            <Text style={[styles.menuItemText, isActive && { color: Colors.dark.primary }]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        </Link>
-      </Animated.View>
-    );
-  };
-
   return (
     <View style={styles.wrapper}>
       <SafeAreaView style={styles.safeArea}>
         <Animated.View style={[styles.container, { backgroundColor: headerBackgroundColor }]}>
-          {/* Header Background with Blur */}
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: headerOpacity }]}>
             {Platform.OS === 'ios' ? (
               <Animated.View style={StyleSheet.absoluteFill}>
@@ -298,6 +173,7 @@ const Header = forwardRef<HeaderRef, HeaderProps>(({ title, showSearch = true, o
           </View>
         </Animated.View>
       </SafeAreaView>
+
       {/* Search Modal */}
       {isSearchBarVisible && (
         <View style={styles.searchModalContainer}>
@@ -317,18 +193,94 @@ const Header = forwardRef<HeaderRef, HeaderProps>(({ title, showSearch = true, o
           </View>
         </View>
       )}
+
+      {/* Menu Modal */}
+      <Modal
+        visible={isMenuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={toggleMenu}
+      >
+        <View style={styles.menuModalContainer}>
+          <BlurView 
+            style={styles.menuModalBlur}
+            intensity={20}
+            tint="dark"
+          >
+            <TouchableOpacity 
+              style={styles.menuModalBackdrop}
+              activeOpacity={1}
+              onPress={toggleMenu}
+            />
+            <Animated.View style={[styles.menuContent]}>
+              <View style={styles.menuHeader}>
+                <Image
+                  source={require('@/assets/images/arise.png')}
+                  style={styles.menuLogo}
+                  contentFit="contain"
+                />
+                <TouchableOpacity 
+                  style={styles.closeButton}
+                  onPress={toggleMenu}
+                >
+                  <X size={24} color={Colors.dark.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.menuItems}>
+                {menuItems.map((item, index) => {
+                  const isActive = pathname === item.route;
+                  const ItemIcon = item.icon;
+                  
+                  return (
+                    <Link 
+                      key={item.route} 
+                      href={item.route as string}
+                      asChild
+                    >
+                      <TouchableOpacity
+                        style={[
+                          styles.menuItem,
+                          isActive && styles.menuItemActive
+                        ]}
+                        onPress={() => {
+                          toggleMenu();
+                          router.push(item.route);
+                        }}
+                      >
+                        <View style={styles.menuIconContainer}>
+                          <ItemIcon 
+                            size={20} 
+                            color={isActive ? Colors.dark.primary : Colors.dark.text} 
+                          />
+                        </View>
+                        <Text style={[
+                          styles.menuItemText,
+                          isActive && styles.menuItemTextActive
+                        ]}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    </Link>
+                  );
+                })}
+              </View>
+
+              <View style={styles.menuFooter}>
+                <Text style={styles.appVersion}>Version 1.0.0</Text>
+              </View>
+            </Animated.View>
+          </BlurView>
+        </View>
+      </Modal>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
   wrapper: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
+    position: 'relative',
     zIndex: 1000,
-    elevation: 1000,
   },
   safeArea: {
     width: '100%',
@@ -344,36 +296,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
     backgroundColor: 'rgba(10,10,20,0.7)',
-  },
-  searchModalContainer: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2000,
-  },
-  searchModalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  searchModalBlur: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  searchModalContent: {
-    width: '90%',
-    maxWidth: 500,
-    backgroundColor: 'rgba(30, 30, 40, 0.9)',
-    borderRadius: 16,
-    padding: 20,
-    zIndex: 2001,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   content: {
     flexDirection: 'row',
@@ -408,105 +330,111 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginHorizontal: 2,
   },
-  searchContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  searchBackButton: {
-    padding: Layout.spacing.sm,
-    marginRight: Layout.spacing.sm,
-  },
-  searchBarWrapper: {
-    flex: 1,
-  },
-  overlay: {
+  searchModalContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 1001,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
   },
-  menuContainer: {
-    flex: 1,
-    backgroundColor: Colors.dark.card,
-    width: MENU_WIDTH,
-    paddingTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight ?? 0) + 20,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
+  searchModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  searchModalBlur: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  searchModalContent: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: 'rgba(30, 30, 40, 0.9)',
+    borderRadius: 16,
+    padding: 20,
+    zIndex: 2001,
     shadowColor: '#000',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
+  },
+  menuModalContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  menuModalBlur: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  menuModalBackdrop: {
+    flex: 1,
+  },
+  menuContent: {
+    width: MENU_WIDTH,
+    height: '100%',
+    backgroundColor: Colors.dark.card,
     borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.05)',
+    borderRightColor: Colors.dark.border,
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Layout.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  menuLogo: {
+    width: 100,
+    height: 32,
   },
   closeButton: {
     padding: Layout.spacing.sm,
+    borderRadius: 8,
+  },
+  menuItems: {
+    flex: 1,
+    padding: Layout.spacing.md,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
-    overflow: 'hidden',
+    padding: Layout.spacing.md,
+    borderRadius: Layout.borderRadius.md,
+    marginBottom: Layout.spacing.sm,
   },
   menuItemActive: {
     backgroundColor: 'rgba(162, 89, 255, 0.1)',
   },
   menuIconContainer: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: 8,
     backgroundColor: 'rgba(162, 89, 255, 0.1)',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    alignItems: 'center',
+    marginRight: Layout.spacing.sm,
   },
   menuItemText: {
     color: Colors.dark.text,
     fontSize: 16,
     fontWeight: '500',
-    letterSpacing: 0.2,
   },
-  menuContent: {
-    marginTop: 30,
-    paddingHorizontal: 4,
-  },
-  menuHeader: {
-    paddingBottom: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-    marginBottom: 20,
-  },
-  menuLogo: {
-    width: 100,
-    height: 30,
-    resizeMode: 'contain',
+  menuItemTextActive: {
+    color: Colors.dark.primary,
+    fontWeight: 'bold',
   },
   menuFooter: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
+    padding: Layout.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-    backgroundColor: 'rgba(10, 10, 20, 0.8)',
-    backdropFilter: 'blur(10px)',
+    borderTopColor: Colors.dark.border,
+    alignItems: 'center',
   },
   appVersion: {
     color: Colors.dark.subtext,
     fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '400',
-    opacity: 0.7,
-    letterSpacing: 0.5,
   },
 });
 
